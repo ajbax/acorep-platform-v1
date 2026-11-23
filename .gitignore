@@ -1,0 +1,12 @@
+node_modules
+dist
+cdk.out
+.env*
+!.env.example
+*.tsbuildinfo
+.DS_Store
+playwright-report
+test-results
+dist-aws
+!.env.aws
+cdk.context.json
