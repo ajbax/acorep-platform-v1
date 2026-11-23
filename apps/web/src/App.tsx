@@ -7,6 +7,7 @@ import { ButtonLink, Loading } from '@/components/ui';
 import { useMyEstablishment } from '@/components/nav/groups';
 import { RequireAuth, useSession } from '@/features/auth/AuthProvider';
 import { SignInPage } from '@/features/auth/SignInPage';
+import { ProductionSignInPage } from '@/features/auth/ProductionSignInPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { DeclarationsPage } from '@/features/declarations/DeclarationsPage';
 import { DeclarationPage } from '@/features/declarations/DeclarationPage';
@@ -64,6 +65,8 @@ export function App() {
     <MotionConfig reducedMotion="user">
       <Routes>
         <Route path="/connexion" element={<SignInPage />} />
+        {/* Design preview of the production sign-in (e-mail, password, TOTP). Never creates a session. */}
+        <Route path="/connexion-2" element={<ProductionSignInPage />} />
         <Route path="/inscription" element={<PublicRegisterPage />} />
         <Route element={<SignedIn />}>
           <Route path="/" element={<Home />} />
