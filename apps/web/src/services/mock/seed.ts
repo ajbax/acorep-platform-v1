@@ -3,12 +3,12 @@ import {
   PROVINCES,
   type Currency,
   type DeclarationStatus,
-  type DosageForm,
   type Establishment,
   type EstablishmentKind,
   type EstablishmentStatus,
   type ImportDeclaration,
   type ProductLine,
+  type ProductReference,
   type ProvinceCode,
   type Role,
   type StatusEvent,
@@ -169,7 +169,8 @@ const RCCM_CITY: Partial<Record<ProvinceCode, string>> = {
   'CD-SK': 'BKV',
 };
 
-const PRODUCTS: Omit<ProductLine, 'batchNumber' | 'expiryDate' | 'quantity' | 'manufacturer' | 'originCountry'>[] = [
+/** Fictional extract of the AMM register, with a typical unit price (USD) for seeding. */
+export const PRODUCTS: (ProductReference & { unitPrice: number })[] = [
   {
     productName: 'Amoxicilline Gé',
     inn: 'Amoxicilline',
@@ -464,7 +465,6 @@ export function buildSeed(now = new Date()): Seed {
       const shelfDays = r() < 0.08 ? 200 + Math.floor(r() * 120) : 540 + Math.floor(r() * 500);
       return {
         ...p,
-        dosageForm: p.dosageForm as DosageForm,
         manufacturer: m.name,
         originCountry: m.country,
         batchNumber: `${m.country}${Math.floor(10000 + r() * 89999)}`,

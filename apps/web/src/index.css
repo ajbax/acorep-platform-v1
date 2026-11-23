@@ -1,18 +1,21 @@
 @import 'tailwindcss';
 
 /*
- * Institutional palette. Placeholder until ACOREP provides its brand guidelines:
- * navy ink, the DRC flag's blue, yellow and red used sparingly as accents.
+ * Design language shared with Pic'KG: white canvas, Bricolage Grotesque display type, ink-glass
+ * navigation, a yellow marker accent. ACOREP version: navy ink, the DRC flag's yellow as the
+ * accent ("sun"), the flag's blue for links and focus. Placeholder until ACOREP's brand guidelines.
  * Text colours meet WCAG 2.2 AA contrast (4.5:1) on white.
  */
 @theme {
-  --color-ink: #0c1f3f;
-  --color-ink-soft: #4a5568;
-  --color-surface: #f5f7fb;
-  --color-line: #e2e8f0;
-  --color-accent: #0062cc; /* DRC blue, darkened for text contrast */
+  --color-ink: #0b1a33;
+  --color-ink-soft: #4b5568;
+  --color-surface: #f2f4f8;
+  --color-line: #e3e7ee;
+  --color-accent: #0062cc;
   --color-accent-soft: #e6f0fb;
-  --color-flag-yellow: #f7d618;
+  --color-sun: #f7d618;
+  --color-sun-deep: #7a6600;
+  --color-sun-soft: #fef9d7;
   --color-flag-red: #ce1021;
   --color-ok: #15803d;
   --color-ok-soft: #dcfce7;
@@ -23,9 +26,13 @@
   --color-info: #0062cc;
   --color-info-soft: #e6f0fb;
   --color-sea: #0e7490;
-  --color-air: #7c3aed;
+  --color-sea-soft: #e0f4f7;
+  --color-air: #6d28d9;
+  --color-air-soft: #ede9fe;
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --shadow-card: 0 1px 2px rgb(12 31 63 / 0.05), 0 4px 14px rgb(12 31 63 / 0.06);
+  --font-display: 'Bricolage Grotesque', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: 0 1px 2px rgb(11 26 51 / 0.04), 0 4px 16px rgb(11 26 51 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(11 26 51 / 0.06), 0 12px 32px rgb(11 26 51 / 0.12);
 }
 
 html,
@@ -34,18 +41,48 @@ body,
   min-height: 100%;
 }
 body {
-  background: var(--color-surface);
+  background: #fff;
   color: var(--color-ink);
-  font-feature-settings: 'cv11', 'ss01', 'tnum';
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @layer base {
   :focus-visible {
     outline: 2.5px solid var(--color-accent);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 10px;
   }
+}
+
+/* Display headings: tighter tracking reads better at large sizes. */
+.font-display {
+  letter-spacing: -0.025em;
+  font-optical-sizing: auto;
+}
+
+/* Yellow marker stroke behind one word of a headline (light backgrounds). */
+.highlight {
+  background: linear-gradient(transparent 60%, var(--color-sun) 60%, var(--color-sun) 92%, transparent 92%);
+  padding: 0 0.06em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Loading skeleton sheen. */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, #f1f3f7 0%, #e6e9ef 40%, #f1f3f7 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
 }
 
 /* Map: provinces react to hover/focus without re-rendering React. */
@@ -60,4 +97,62 @@ body {
 .province:focus-visible {
   stroke: var(--color-ink);
   stroke-width: 2.2;
+}
+
+/* Points of entry pulse gently on the map. */
+@keyframes pulse-ring {
+  0% {
+    r: 6;
+    opacity: 0.55;
+  }
+  100% {
+    r: 18;
+    opacity: 0;
+  }
+}
+.entry-pulse {
+  animation: pulse-ring 2.4s ease-out infinite;
+}
+
+/*
+ * Scroll reveal tied to scroll position (not time): anything on screen is fully visible, and
+ * browsers without scroll-driven animations show content as-is.
+ */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .entry-pulse {
+    animation: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

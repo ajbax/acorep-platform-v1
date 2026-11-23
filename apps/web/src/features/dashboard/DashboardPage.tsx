@@ -1,20 +1,34 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight, Banknote, Building2, CalendarX2, Hourglass, Pill, ShieldAlert, X } from 'lucide-react';
 import {
   DECLARATION_STATUSES,
   ESTABLISHMENT_KINDS,
   PROVINCE_CODES,
   PROVINCES,
   totalActive,
+  TRANSPORT_MODES,
   type NationalStats,
   type ProvinceCode,
   type ProvinceStats,
 } from '@acorep/shared';
 import { data } from '@/services';
 import { useI18n } from '@/i18n';
-import { Card, CardTitle, ErrorState, Kpi, Loading, PageHeader } from '@/components/ui';
+import { haptic } from '@/lib/haptics';
+import {
+  AnimatedNumber,
+  ButtonLink,
+  Card,
+  CardTitle,
+  ErrorState,
+  Kpi,
+  Loading,
+  ModeTile,
+  PageHeader,
+} from '@/components/ui';
+import { KIND_ICON } from '@/components/nav/NavPreview';
 import { DECLARATION_TONE, type Tone } from '@/lib/statusTone';
 import { DrcMap } from '@/features/map/DrcMap';
 
@@ -42,10 +56,13 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={t.dashboard.title}
+        eyebrow={t.dashboard.eyebrow}
+        title={t.dashboard.titleLead}
+        accent={t.dashboard.titleAccent}
         subtitle={t.dashboard.subtitle}
         actions={
-          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-soft ring-1 ring-line">
+          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3.5 py-1.5 text-xs font-bold text-ink-soft shadow-card">
+            <span className="h-2 w-2 rounded-full bg-ok" />
             {t.dashboard.period}
           </span>
         }
@@ -70,58 +87,98 @@ function Dashboard({ stats }: { stats: NationalStats }) {
       >,
     [stats, indicator],
   );
-  const fmt = indicator === 'value' ? (v: number) => money(v, 'USD', true) : (v: number) => num(v);
+  const fmt = indicator === 'value' ? (v: number) => money(v, 'USD', true) : (v: number) => num(Math.round(v));
+  const expired = sum((s) => s.expiredLicences);
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi label={t.dashboard.kpiActive} value={num(sum(totalActive))} />
-        <Kpi label={t.dashboard.kpiPharmacies} value={num(sum((s) => s.active.PHARMACY))} />
+        <Kpi
+          label={t.dashboard.kpiActive}
+          value={sum(totalActive)}
+          format={(n) => num(Math.round(n))}
+          icon={Building2}
+          tone="bg-accent-soft text-accent"
+        />
+        <Kpi
+          label={t.dashboard.kpiPharmacies}
+          value={sum((s) => s.active.PHARMACY)}
+          format={(n) => num(Math.round(n))}
+          icon={Pill}
+          tone="bg-ok-soft text-ok"
+        />
         <Kpi
           label={t.dashboard.kpiPending}
-          value={num(stats.pendingDeclarations)}
-          tone={stats.pendingDeclarations ? 'warn' : undefined}
+          value={stats.pendingDeclarations}
+          format={(n) => num(Math.round(n))}
+          icon={Hourglass}
+          tone="bg-warn-soft text-warn"
+          alert={stats.pendingDeclarations ? 'warn' : undefined}
+          to="/declarations?status=SUBMITTED"
         />
         <Kpi
           label={t.dashboard.kpiValue}
-          value={money(
-            sum((s) => s.importValueUsd),
-            'USD',
-            true,
-          )}
+          value={sum((s) => s.importValueUsd)}
+          format={(n) => money(n, 'USD', true)}
+          icon={Banknote}
+          tone="bg-sun-soft text-sun-deep"
         />
         <Kpi
           label={t.dashboard.kpiNonCompliant}
-          value={num(stats.nonCompliant)}
-          tone={stats.nonCompliant ? 'danger' : undefined}
+          value={stats.nonCompliant}
+          format={(n) => num(Math.round(n))}
+          icon={ShieldAlert}
+          tone="bg-danger-soft text-danger"
+          alert={stats.nonCompliant ? 'danger' : undefined}
+          to="/declarations?status=NON_COMPLIANT"
         />
         <Kpi
           label={t.dashboard.kpiExpired}
-          value={num(sum((s) => s.expiredLicences))}
-          tone={sum((s) => s.expiredLicences) ? 'danger' : undefined}
+          value={expired}
+          format={(n) => num(Math.round(n))}
+          icon={CalendarX2}
+          tone="bg-danger-soft text-danger"
+          alert={expired ? 'danger' : undefined}
+          to="/etablissements?status=EXPIRED"
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Card>
-          <CardTitle>{t.dashboard.mapTitle}</CardTitle>
-          <div className="p-4 sm:p-5">
-            <div role="radiogroup" aria-label={t.dashboard.indicator} className="mb-4 flex flex-wrap gap-2">
-              {INDICATORS.map((i) => (
-                <button
-                  key={i}
-                  type="button"
-                  role="radio"
-                  aria-checked={indicator === i}
-                  onClick={() => setIndicator(i)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition-colors ${
-                    indicator === i ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-line hover:text-ink'
-                  }`}
-                >
-                  {t.dashboard.indicators[i]}
-                </button>
-              ))}
-            </div>
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 pt-6">
+          <h2 className="font-display text-2xl font-extrabold">{t.dashboard.mapTitle}</h2>
+          <div
+            role="radiogroup"
+            aria-label={t.dashboard.indicator}
+            className="no-scrollbar flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-surface p-1"
+          >
+            {INDICATORS.map((i) => (
+              <button
+                key={i}
+                type="button"
+                role="radio"
+                aria-checked={indicator === i}
+                onClick={() => {
+                  haptic();
+                  setIndicator(i);
+                }}
+                className={`relative shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
+                  indicator === i ? 'text-white' : 'text-ink-soft hover:text-ink'
+                }`}
+              >
+                {indicator === i && (
+                  <motion.span
+                    layoutId="indicator-pill"
+                    className="absolute inset-0 rounded-xl bg-ink"
+                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                  />
+                )}
+                <span className="relative whitespace-nowrap">{t.dashboard.indicators[i]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div>
             <DrcMap
               values={values}
               format={fmt}
@@ -131,58 +188,27 @@ function Dashboard({ stats }: { stats: NationalStats }) {
             />
             <p className="mt-3 text-[11px] text-ink-soft">{t.dashboard.attribution}</p>
           </div>
-        </Card>
-
-        {selected ? (
-          <ProvincePanel stats={stats.provinces[selected]} onClose={() => setSelected(null)} />
-        ) : (
-          <Card>
-            <CardTitle>{t.dashboard.ranking}</CardTitle>
-            <p className="px-5 pt-3 text-xs text-ink-soft">{t.dashboard.clickProvince}</p>
-            <ol className="divide-y divide-line px-2 py-2">
-              {[...PROVINCES]
-                .sort((a, b) => values[b.code] - values[a.code])
-                .slice(0, 12)
-                .map((p, i) => {
-                  const max = Math.max(1, ...Object.values(values));
-                  return (
-                    <li key={p.code}>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(p.code)}
-                        className="grid w-full grid-cols-[1.5rem_1fr_auto] items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface"
-                      >
-                        <span className="text-xs tabular-nums text-ink-soft">{i + 1}</span>
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{p.name}</span>
-                          <span className="mt-1 block h-1.5 rounded-full bg-surface">
-                            <span
-                              className="block h-1.5 rounded-full bg-accent"
-                              style={{ width: `${(values[p.code] / max) * 100}%` }}
-                            />
-                          </span>
-                        </span>
-                        <span className="font-semibold tabular-nums">{fmt(values[p.code])}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-            </ol>
-          </Card>
-        )}
-      </div>
+          {selected ? (
+            <ProvincePanel stats={stats.provinces[selected]} onClose={() => setSelected(null)} />
+          ) : (
+            <Ranking values={values} fmt={fmt} onSelect={setSelected} />
+          )}
+        </div>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardTitle>{t.dashboard.byMode}</CardTitle>
-          <div className="grid grid-cols-2 gap-4 p-5">
-            {(['SEA', 'AIR'] as const).map((m) => (
-              <div key={m} className="rounded-lg bg-surface p-4">
-                <p className={`text-xs font-semibold uppercase tracking-wide ${m === 'SEA' ? 'text-sea' : 'text-air'}`}>
-                  {t.modes[m]}
+          <div className="grid grid-cols-2 gap-3 p-6 pt-3">
+            {TRANSPORT_MODES.map((m) => (
+              <div key={m} className="rounded-2xl bg-surface p-5">
+                <ModeTile mode={m} />
+                <p className="mt-4 font-display text-4xl font-extrabold">
+                  <AnimatedNumber value={sum((s) => s.imports[m])} format={(n) => num(Math.round(n))} />
                 </p>
-                <p className="mt-1 text-2xl font-bold tabular-nums">{num(sum((s) => s.imports[m]))}</p>
-                <p className="text-xs text-ink-soft">{t.dashboard.indicators.imports.toLowerCase()}</p>
+                <p className="mt-1 text-xs font-semibold text-ink-soft">
+                  {t.modes[m]} · {t.dashboard.indicators.imports.toLowerCase()}
+                </p>
               </div>
             ))}
           </div>
@@ -192,29 +218,35 @@ function Dashboard({ stats }: { stats: NationalStats }) {
             aside={
               <Link
                 to="/declarations"
-                className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+                className="flex items-center gap-1 text-xs font-bold text-accent hover:underline"
               >
-                {t.dashboard.viewDeclarations}
-                <ArrowRight className="size-3.5" aria-hidden />
+                {t.common.seeAll}
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
             }
           >
             {t.dashboard.queue}
           </CardTitle>
-          <ul className="space-y-2.5 p-5">
+          <ul className="space-y-1 p-4 pt-2">
             {DECLARATION_STATUSES.filter((s) => s !== 'DRAFT').map((s) => {
               const n = stats.byStatus[s] ?? 0;
               const max = Math.max(1, ...Object.values(stats.byStatus).map((v) => v ?? 0));
               return (
-                <li key={s} className="grid grid-cols-[9rem_1fr_2.5rem] items-center gap-3 text-sm">
-                  <span className="truncate text-ink-soft">{t.declaration.statuses[s]}</span>
-                  <span className="h-2 rounded-full bg-surface">
-                    <span
-                      className={`block h-2 rounded-full ${BAR[DECLARATION_TONE[s]]}`}
-                      style={{ width: `${(n / max) * 100}%` }}
-                    />
-                  </span>
-                  <span className="text-right font-semibold tabular-nums">{num(n)}</span>
+                <li key={s}>
+                  <Link
+                    to={`/declarations?status=${s}`}
+                    className="grid grid-cols-[9.5rem_1fr_2.5rem] items-center gap-3 rounded-xl px-2 py-2 text-sm transition-colors hover:bg-surface"
+                  >
+                    <span className="truncate font-medium text-ink-soft">{t.declaration.statuses[s]}</span>
+                    <span className="h-2 rounded-full bg-surface">
+                      <motion.span
+                        className={`block h-2 rounded-full ${BAR[DECLARATION_TONE[s]]}`}
+                        initial={false}
+                        animate={{ width: `${(n / max) * 100}%` }}
+                      />
+                    </span>
+                    <span className="text-right font-display font-extrabold tabular-nums">{num(n)}</span>
+                  </Link>
                 </li>
               );
             })}
@@ -225,67 +257,128 @@ function Dashboard({ stats }: { stats: NationalStats }) {
   );
 }
 
+function Ranking({
+  values,
+  fmt,
+  onSelect,
+}: {
+  values: Record<ProvinceCode, number>;
+  fmt: (v: number) => string;
+  onSelect: (p: ProvinceCode) => void;
+}) {
+  const { t } = useI18n();
+  const max = Math.max(1, ...Object.values(values));
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">{t.dashboard.ranking}</p>
+      <p className="mt-1 text-sm text-ink-soft">{t.dashboard.clickProvince}</p>
+      <ol className="mt-4 space-y-1">
+        {[...PROVINCES]
+          .sort((a, b) => values[b.code] - values[a.code])
+          .slice(0, 10)
+          .map((p, i) => (
+            <li key={p.code}>
+              <button
+                type="button"
+                onClick={() => {
+                  haptic();
+                  onSelect(p.code);
+                }}
+                className="grid w-full grid-cols-[1.75rem_1fr_auto] items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors hover:bg-surface"
+              >
+                <span
+                  className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${i < 3 ? 'bg-sun text-ink' : 'bg-surface text-ink-soft'}`}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold">{p.name}</span>
+                  <span className="mt-1.5 block h-1.5 rounded-full bg-surface">
+                    <motion.span
+                      className="block h-1.5 rounded-full bg-ink"
+                      initial={false}
+                      animate={{ width: `${(values[p.code] / max) * 100}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="font-display text-base font-extrabold tabular-nums">{fmt(values[p.code])}</span>
+              </button>
+            </li>
+          ))}
+      </ol>
+    </div>
+  );
+}
+
 function ProvincePanel({ stats, onClose }: { stats: ProvinceStats; onClose: () => void }) {
   const { t, f, num, money } = useI18n();
   const p = PROVINCES.find((x) => x.code === stats.province)!;
   return (
-    <Card>
-      <CardTitle
-        aside={
-          <button type="button" onClick={onClose} className="text-xs font-semibold text-accent hover:underline">
-            {t.nav.close}
-          </button>
-        }
-      >
-        {p.name}
-      </CardTitle>
-      <div className="space-y-5 p-5">
-        <p className="text-sm text-ink-soft">{f(t.dashboard.provinceCapital, { city: p.capital })}</p>
-        <dl className="grid grid-cols-2 gap-3">
-          {ESTABLISHMENT_KINDS.map((k) => (
-            <div key={k} className="rounded-lg bg-surface p-3">
-              <dt className="text-xs text-ink-soft">{t.establishment.kinds[k]}</dt>
-              <dd className="text-lg font-bold tabular-nums">{num(stats.active[k])}</dd>
+    <motion.div initial={{ x: 16 }} animate={{ x: 0 }} className="rounded-3xl bg-ink p-6 text-white">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-sun">{p.code}</p>
+          <h3 className="mt-1 font-display text-3xl font-extrabold">{p.name}</h3>
+          <p className="text-sm text-white/60">{f(t.dashboard.provinceCapital, { city: p.capital })}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t.nav.close}
+          className="grid h-9 w-9 place-items-center rounded-full bg-white/10 hover:bg-white/20"
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
+      <dl className="mt-6 grid grid-cols-2 gap-2">
+        {ESTABLISHMENT_KINDS.map((k) => {
+          const Icon = KIND_ICON[k];
+          return (
+            <div key={k} className="rounded-2xl bg-white/[0.06] p-3">
+              <dt className="flex items-center gap-1.5 text-[11px] font-semibold text-white/60">
+                <Icon className="h-3.5 w-3.5 text-sun" aria-hidden />
+                {t.establishment.kinds[k]}
+              </dt>
+              <dd className="mt-1 font-display text-2xl font-extrabold">{num(stats.active[k])}</dd>
             </div>
-          ))}
-          <div className="rounded-lg bg-surface p-3">
-            <dt className="text-xs text-ink-soft">{t.dashboard.pendingEst}</dt>
-            <dd className="text-lg font-bold tabular-nums">{num(stats.pendingEstablishments)}</dd>
-          </div>
-          <div className="rounded-lg bg-surface p-3">
-            <dt className="text-xs text-ink-soft">{t.dashboard.kpiExpired}</dt>
-            <dd className={`text-lg font-bold tabular-nums ${stats.expiredLicences ? 'text-danger' : ''}`}>
-              {num(stats.expiredLicences)}
-            </dd>
-          </div>
-          <div className="rounded-lg bg-surface p-3">
-            <dt className="text-xs text-ink-soft">
-              {t.dashboard.indicators.imports} ({t.common.sea.toLowerCase()} / {t.common.air.toLowerCase()})
-            </dt>
-            <dd className="text-lg font-bold tabular-nums">
-              {num(stats.imports.SEA)} / {num(stats.imports.AIR)}
-            </dd>
-          </div>
-          <div className="rounded-lg bg-surface p-3">
-            <dt className="text-xs text-ink-soft">{t.dashboard.indicators.value}</dt>
-            <dd className="text-lg font-bold tabular-nums">{money(stats.importValueUsd, 'USD', true)}</dd>
-          </div>
-        </dl>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link
-            to={`/etablissements?province=${p.code}`}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink/90"
-          >
-            {t.dashboard.viewEstablishments}
-          </Link>
-          <Link
-            to={`/declarations?province=${p.code}`}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-ink ring-1 ring-line hover:bg-surface"
-          >
-            {t.dashboard.viewDeclarations}
-          </Link>
+          );
+        })}
+        <div className="rounded-2xl bg-white/[0.06] p-3">
+          <dt className="text-[11px] font-semibold text-white/60">{t.dashboard.pendingEst}</dt>
+          <dd className="mt-1 font-display text-2xl font-extrabold">{num(stats.pendingEstablishments)}</dd>
+        </div>
+      </dl>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="rounded-2xl bg-white/[0.06] p-3">
+          <dt className="text-[11px] font-semibold text-white/60">{t.dashboard.kpiExpired}</dt>
+          <dd className={`mt-1 font-display text-xl font-extrabold ${stats.expiredLicences ? 'text-red-300' : ''}`}>
+            {num(stats.expiredLicences)}
+          </dd>
+        </div>
+        <div className="rounded-2xl bg-white/[0.06] p-3">
+          <dt className="text-[11px] font-semibold text-white/60">
+            {t.common.sea} / {t.common.air}
+          </dt>
+          <dd className="mt-1 font-display text-xl font-extrabold">
+            {num(stats.imports.SEA)} / {num(stats.imports.AIR)}
+          </dd>
+        </div>
+        <div className="rounded-2xl bg-white/[0.06] p-3">
+          <dt className="text-[11px] font-semibold text-white/60">{t.common.value}</dt>
+          <dd className="mt-1 font-display text-xl font-extrabold">{money(stats.importValueUsd, 'USD', true)}</dd>
         </div>
       </div>
-    </Card>
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <ButtonLink to={`/etablissements?province=${p.code}`} variant="sun" className="flex-1">
+          {t.dashboard.viewEstablishments}
+        </ButtonLink>
+        <Link
+          to={`/declarations?province=${p.code}`}
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl px-5 text-sm font-bold text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/10"
+        >
+          {t.dashboard.viewDeclarations}
+        </Link>
+      </div>
+    </motion.div>
   );
 }

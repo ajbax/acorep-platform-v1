@@ -12,6 +12,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    // Smooth scrolling (index.css) moves elements while Playwright clicks them under load.
+    contextOptions: { reducedMotion: 'reduce' },
     // Locally reuse the installed Chrome; CI installs Playwright's Chromium.
     channel: CI ? undefined : 'chrome',
   },

@@ -1,33 +1,66 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plane, Search, Ship } from 'lucide-react';
+import { ChevronRight, PackageSearch, Plus, Search } from 'lucide-react';
 import {
   DECLARATION_STATUSES,
   declarationValue,
+  IMPORTING_KINDS,
   isProvinceCode,
+  provinceName,
   PROVINCES,
   TRANSPORT_MODES,
   type ImportDeclaration,
 } from '@acorep/shared';
 import { data } from '@/services';
 import { useI18n } from '@/i18n';
-import { Badge, Card, Empty, ErrorState, Loading, PageHeader, Select } from '@/components/ui';
+import {
+  Badge,
+  ButtonLink,
+  Card,
+  Empty,
+  ErrorState,
+  Loading,
+  MODE_STYLE,
+  ModeTile,
+  PageHeader,
+  Select,
+} from '@/components/ui';
 import { DECLARATION_TONE } from '@/lib/statusTone';
 import { useSession } from '@/features/auth/AuthProvider';
+import { useMyEstablishment } from '@/components/nav/groups';
 
 const PAGE = 50;
 
 export function DeclarationsPage() {
   const { t } = useI18n();
+  const session = useSession();
+  const mine = useMyEstablishment(session);
   const q = useQuery({ queryKey: ['declarations'], queryFn: () => data.listDeclarations() });
+  const canDeclare = !!mine.data && IMPORTING_KINDS.includes(mine.data.kind);
   return (
     <>
-      <PageHeader title={t.declaration.title} subtitle={t.declaration.subtitle} />
+      <PageHeader
+        eyebrow={t.declaration.eyebrow}
+        title={t.declaration.titleLead}
+        accent={t.declaration.titleAccent}
+        subtitle={t.declaration.subtitle}
+        actions={
+          canDeclare && (
+            <ButtonLink to="/declarations/nouvelle" variant="sun">
+              <Plus className="h-4 w-4" strokeWidth={2.8} aria-hidden />
+              {t.nav.declareCta}
+            </ButtonLink>
+          )
+        }
+      />
       {q.isPending ? <Loading /> : q.isError ? <ErrorState error={q.error} /> : <List items={q.data} />}
     </>
   );
 }
+
+const searchInput =
+  'h-12 w-full rounded-2xl border-2 border-transparent bg-surface pl-11 pr-4 text-sm font-semibold text-ink outline-none transition-colors placeholder:font-medium placeholder:text-zinc-400 focus:border-ink focus:bg-white focus-visible:outline-none';
 
 function List({ items }: { items: ImportDeclaration[] }) {
   const { t, f, date, money } = useI18n();
@@ -60,17 +93,17 @@ function List({ items }: { items: ImportDeclaration[] }) {
             (v) => v.toLowerCase().includes(needle),
           ),
       )
-      .sort((a, b) => (b.submittedAt ?? b.createdAt).localeCompare(a.submittedAt ?? a.createdAt));
+      .sort((a, b) => (b.submittedAt ?? b.updatedAt).localeCompare(a.submittedAt ?? a.updatedAt));
   }, [items, province, status, mode, text]);
 
   return (
     <Card>
-      <div className="grid gap-3 border-b border-line p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-        <label className="flex flex-col gap-1 text-xs font-medium text-ink-soft">
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+        <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-soft sm:col-span-2 lg:col-span-1">
           {t.common.search}
           <span className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft"
               aria-hidden
             />
             <input
@@ -78,7 +111,7 @@ function List({ items }: { items: ImportDeclaration[] }) {
               value={text}
               onChange={(e) => set('q', e.target.value)}
               placeholder={t.declaration.searchPlaceholder}
-              className="h-10 w-full rounded-lg border border-line bg-white pl-9 pr-3 text-sm text-ink focus-visible:border-accent"
+              className={searchInput}
             />
           </span>
         </label>
@@ -110,46 +143,50 @@ function List({ items }: { items: ImportDeclaration[] }) {
         </Select>
       </div>
 
-      <p className="px-5 pt-3 text-xs text-ink-soft" aria-live="polite">
+      <p className="border-t border-line px-5 py-3 text-xs font-semibold text-ink-soft" aria-live="polite">
         {f(t.common.results, { n: filtered.length })}
       </p>
 
       {!filtered.length ? (
-        <Empty>{t.common.noResults}</Empty>
+        <Empty icon={PackageSearch}>{t.common.noResults}</Empty>
       ) : (
         <>
-          {/* Table from md, cards below. */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-ink-soft">
-                <tr className="border-b border-line">
-                  <th className="px-5 py-3 font-medium">{t.common.reference}</th>
-                  <th className="px-3 py-3 font-medium">{t.declaration.importer}</th>
-                  <th className="px-3 py-3 font-medium">{t.declaration.mode}</th>
-                  <th className="px-3 py-3 font-medium">{t.declaration.submittedAt}</th>
-                  <th className="px-3 py-3 text-right font-medium">{t.common.value}</th>
-                  <th className="px-5 py-3 font-medium">{t.common.status}</th>
+              <thead className="bg-surface/70 text-[11px] uppercase tracking-wide text-ink-soft">
+                <tr>
+                  <th className="px-5 py-3 font-bold">{t.common.reference}</th>
+                  <th className="px-3 py-3 font-bold">{t.declaration.importer}</th>
+                  <th className="px-3 py-3 font-bold">{t.declaration.submittedAt}</th>
+                  <th className="px-3 py-3 text-right font-bold">{t.common.value}</th>
+                  <th className="px-5 py-3 font-bold">{t.common.status}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {filtered.slice(0, limit).map((d) => (
-                  <tr key={d.id} className="hover:bg-surface">
-                    <td className="px-5 py-3">
-                      <Link to={`/declarations/${d.id}`} className="font-semibold text-accent hover:underline">
-                        {d.reference}
+                  <tr key={d.id} className="group transition-colors hover:bg-surface/60">
+                    <td className="px-5 py-3.5">
+                      <Link to={`/declarations/${d.id}`} className="flex items-center gap-3">
+                        <ModeTile mode={d.mode} size="sm" />
+                        <span>
+                          <span className="block font-bold group-hover:text-accent">{d.reference}</span>
+                          <span className={`block text-xs font-semibold ${MODE_STYLE[d.mode].text}`}>
+                            {t.modes[d.mode]}
+                          </span>
+                        </span>
                       </Link>
                     </td>
-                    <td className="max-w-64 truncate px-3 py-3">{d.importerName}</td>
-                    <td className="px-3 py-3">
-                      <ModeLabel mode={d.mode} />
+                    <td className="max-w-64 px-3 py-3.5">
+                      <span className="block truncate font-semibold">{d.importerName}</span>
+                      <span className="block text-xs text-ink-soft">{provinceName(d.destinationProvince)}</span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-ink-soft">
+                    <td className="whitespace-nowrap px-3 py-3.5 text-ink-soft">
                       {d.submittedAt ? date(d.submittedAt) : '—'}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
+                    <td className="whitespace-nowrap px-3 py-3.5 text-right font-display font-extrabold tabular-nums">
                       {money(declarationValue(d), d.currency)}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3.5">
                       <Badge tone={DECLARATION_TONE[d.status]}>{t.declaration.statuses[d.status]}</Badge>
                     </td>
                   </tr>
@@ -160,16 +197,19 @@ function List({ items }: { items: ImportDeclaration[] }) {
           <ul className="divide-y divide-line md:hidden">
             {filtered.slice(0, limit).map((d) => (
               <li key={d.id}>
-                <Link to={`/declarations/${d.id}`} className="block space-y-1.5 px-4 py-3 hover:bg-surface">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-accent">{d.reference}</span>
+                <Link to={`/declarations/${d.id}`} className="flex items-center gap-3 px-4 py-3.5 active:bg-surface">
+                  <ModeTile mode={d.mode} />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold">{d.reference}</span>
+                      <span className="font-display text-sm font-extrabold">
+                        {money(declarationValue(d), d.currency)}
+                      </span>
+                    </div>
+                    <p className="truncate text-xs text-ink-soft">{d.importerName}</p>
                     <Badge tone={DECLARATION_TONE[d.status]}>{t.declaration.statuses[d.status]}</Badge>
                   </div>
-                  <p className="truncate text-sm">{d.importerName}</p>
-                  <div className="flex items-center justify-between text-xs text-ink-soft">
-                    <ModeLabel mode={d.mode} />
-                    <span className="tabular-nums">{money(declarationValue(d), d.currency)}</span>
-                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-soft" aria-hidden />
                 </Link>
               </li>
             ))}
@@ -179,7 +219,7 @@ function List({ items }: { items: ImportDeclaration[] }) {
               <button
                 type="button"
                 onClick={() => setLimit((l) => l + PAGE)}
-                className="rounded-lg px-4 py-2 text-sm font-semibold text-accent ring-1 ring-line hover:bg-surface"
+                className="rounded-full bg-surface px-5 py-2.5 text-sm font-bold text-ink hover:bg-line"
               >
                 + {Math.min(PAGE, filtered.length - limit)}
               </button>
@@ -188,16 +228,5 @@ function List({ items }: { items: ImportDeclaration[] }) {
         </>
       )}
     </Card>
-  );
-}
-
-export function ModeLabel({ mode }: { mode: ImportDeclaration['mode'] }) {
-  const { t } = useI18n();
-  const Icon = mode === 'SEA' ? Ship : Plane;
-  return (
-    <span className={`inline-flex items-center gap-1.5 font-medium ${mode === 'SEA' ? 'text-sea' : 'text-air'}`}>
-      <Icon className="size-4" aria-hidden />
-      {t.modes[mode]}
-    </span>
   );
 }

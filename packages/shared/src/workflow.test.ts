@@ -48,6 +48,16 @@ describe('moveDeclaration', () => {
   });
 });
 
+describe('submission', () => {
+  it('goes through reviseDeclaration, never a plain move', () => {
+    const importer: Session = { userId: 'i', name: 'I', role: 'OPERATOR', establishmentId: 'e1' };
+    const draft = { ...decl, status: 'DRAFT' } as ImportDeclaration;
+    expect(() => moveDeclaration(importer, draft, { to: 'SUBMITTED', expected: 'DRAFT' }, now)).toThrow(
+      'attestation_required',
+    );
+  });
+});
+
 describe('moveEstablishment', () => {
   it('issues a licence on approval', () => {
     const e = moveEstablishment(provincial, est, { to: 'ACTIVE', expected: 'UNDER_REVIEW' }, now);

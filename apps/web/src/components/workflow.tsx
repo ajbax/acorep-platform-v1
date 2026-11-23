@@ -1,14 +1,17 @@
 import { useId, useState } from 'react';
 import { needsComment, type StatusEvent } from '@acorep/shared';
-import { Loader2 } from 'lucide-react';
+import { Gavel, History as HistoryIcon, Loader2 } from 'lucide-react';
 import { useI18n } from '@/i18n';
-import { Card, CardTitle } from './ui';
+import { haptic } from '@/lib/haptics';
+import { inputClass } from './form';
+import { Avatar, Card, CardTitle } from './ui';
 
 const ADVERSE = ['REJECTED', 'NON_COMPLIANT', 'REVOKED', 'SUSPENDED', 'CANCELLED'];
 
 /**
  * Lists the moves the shared status machine allows for this user. Choosing one opens a
  * confirmation with a comment box (mandatory for adverse decisions, see needsComment()).
+ * Give it `key={status}` so it resets after a decision.
  */
 export function StatusActions<S extends string>({
   options,
@@ -32,21 +35,24 @@ export function StatusActions<S extends string>({
 
   return (
     <Card>
-      <CardTitle>{t.common.actions}</CardTitle>
-      <div className="space-y-3 p-5">
+      <CardTitle icon={Gavel}>{t.common.actions}</CardTitle>
+      <div className="space-y-2.5 px-6 pb-6 pt-2">
         {!options.length && <p className="text-sm text-ink-soft">{t.common.noActions}</p>}
         {!choice &&
-          options.map((to) => (
+          options.map((to, i) => (
             <button
               key={to}
               type="button"
-              onClick={() => setChoice(to)}
-              className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+              onClick={() => {
+                haptic();
+                setChoice(to);
+              }}
+              className={`flex min-h-12 w-full items-center justify-center rounded-2xl px-4 text-sm font-bold transition-colors ${
                 ADVERSE.includes(to)
-                  ? 'text-danger ring-1 ring-red-200 hover:bg-danger-soft'
-                  : to === options[0]
-                    ? 'bg-ink text-white hover:bg-ink/90'
-                    : 'text-ink ring-1 ring-line hover:bg-surface'
+                  ? 'bg-white text-danger ring-1 ring-inset ring-red-200 hover:bg-danger-soft'
+                  : i === 0
+                    ? 'bg-ink text-white shadow-lg shadow-ink/15 hover:bg-[#13264a]'
+                    : 'bg-surface text-ink hover:bg-line'
               }`}
             >
               {label(to)}
@@ -60,10 +66,10 @@ export function StatusActions<S extends string>({
             }}
             className="space-y-3"
           >
-            <p className="text-sm font-semibold">{label(choice)}</p>
-            <label htmlFor={id} className="block text-xs font-medium text-ink-soft">
+            <p className="font-display text-lg font-extrabold">{label(choice)}</p>
+            <label htmlFor={id} className="block text-sm font-bold">
               {t.common.comment}
-              {required && ' *'}
+              {required && <span className="text-danger"> *</span>}
             </label>
             <textarea
               id={id}
@@ -72,7 +78,7 @@ export function StatusActions<S extends string>({
               rows={4}
               required={required}
               aria-describedby={required ? `${id}-hint` : undefined}
-              className="w-full rounded-lg border border-line p-3 text-sm focus-visible:border-accent"
+              className={`${inputClass} resize-y`}
             />
             {required && (
               <p id={`${id}-hint`} className="text-xs text-ink-soft">
@@ -80,7 +86,7 @@ export function StatusActions<S extends string>({
               </p>
             )}
             {error && (
-              <p role="alert" className="text-sm font-medium text-danger">
+              <p role="alert" className="text-sm font-semibold text-danger">
                 {t.apiErrors[error] ?? t.app.error}
               </p>
             )}
@@ -91,16 +97,16 @@ export function StatusActions<S extends string>({
                   setChoice(null);
                   setComment('');
                 }}
-                className="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold ring-1 ring-line hover:bg-surface"
+                className="min-h-12 flex-1 rounded-2xl bg-surface px-4 text-sm font-bold hover:bg-line"
               >
                 {t.common.cancel}
               </button>
               <button
                 type="submit"
                 disabled={missing || pending}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink/90 disabled:opacity-50"
+                className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-ink px-4 text-sm font-bold text-white hover:bg-[#13264a] disabled:bg-zinc-200 disabled:text-zinc-400"
               >
-                {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                 {t.common.confirm}
               </button>
             </div>
@@ -113,23 +119,26 @@ export function StatusActions<S extends string>({
 
 /** Append-only audit trail, newest first. */
 export function History<S extends string>({ events, label }: { events: StatusEvent<S>[]; label: (s: S) => string }) {
-  const { t } = useI18n();
-  const { dateTime } = useI18n();
+  const { t, dateTime } = useI18n();
+  const ordered = [...events].reverse();
   return (
     <Card>
-      <CardTitle>{t.common.history}</CardTitle>
-      <ol className="space-y-4 p-5">
-        {[...events].reverse().map((e, i) => (
-          <li key={`${e.at}-${i}`} className="relative pl-5">
-            <span
-              aria-hidden
-              className="absolute left-0 top-1.5 size-2.5 rounded-full bg-accent ring-4 ring-accent-soft"
-            />
-            <p className="text-sm font-semibold">{label(e.to)}</p>
-            <p className="text-xs text-ink-soft">
-              {dateTime(e.at)} · {e.by.name} · {t.roles[e.by.role]}
-            </p>
-            {e.comment && <p className="mt-1.5 rounded-lg bg-surface p-2.5 text-sm text-ink">{e.comment}</p>}
+      <CardTitle icon={HistoryIcon}>{t.common.history}</CardTitle>
+      <ol className="px-6 pb-6 pt-2">
+        {ordered.map((e, i) => (
+          <li key={`${e.at}-${i}`} className="relative flex gap-3 pb-5 last:pb-0">
+            {i < ordered.length - 1 && (
+              <span aria-hidden className="absolute left-[15px] top-9 h-[calc(100%-28px)] w-px bg-line" />
+            )}
+            <Avatar name={e.by.name} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold">{label(e.to)}</p>
+              <p className="text-xs text-ink-soft">
+                {e.by.name} · {t.roles[e.by.role]}
+              </p>
+              <p className="text-xs text-ink-soft">{dateTime(e.at)}</p>
+              {e.comment && <p className="mt-2 rounded-2xl bg-surface p-3 text-sm text-ink">{e.comment}</p>}
+            </div>
           </li>
         ))}
       </ol>

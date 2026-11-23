@@ -64,12 +64,13 @@ export function moveDeclaration(
   now = new Date(),
 ): ImportDeclaration {
   check(d.status, req, canSeeDeclaration(s, d), canMoveDeclaration(s, d, req.to));
+  // Submitting carries the importer's attestation: it goes through buildDeclaration / reviseDeclaration.
+  if (req.to === 'SUBMITTED') throw new WorkflowError('attestation_required');
   const at = now.toISOString();
   return {
     ...d,
     status: req.to,
     updatedAt: at,
-    ...(req.to === 'SUBMITTED' && !d.submittedAt ? { submittedAt: at } : {}),
     ...(req.to === 'APPROVED' || req.to === 'REJECTED' ? { decidedAt: at } : {}),
     history: [...d.history, event(s, d.status, req, now)],
   };

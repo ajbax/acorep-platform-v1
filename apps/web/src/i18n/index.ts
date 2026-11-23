@@ -25,20 +25,28 @@ const dateTimeFmt = new Intl.DateTimeFormat(LOCALE, {
 });
 const countryFmt = new Intl.DisplayNames([LOCALE], { type: 'region' });
 
+/**
+ * French formats group digits with a narrow no-break space (U+202F). The display font has no
+ * glyph for it, so "21 000" rendered as "21000": use the regular no-break space instead.
+ */
+const nbsp = (s: string) => s.replace(/\u202f/g, '\u00a0');
+
 const helpers = {
   t: fr,
   f: interpolate,
-  num: (n: number) => numberFmt.format(n),
-  compact: (n: number) => compactFmt.format(n),
+  num: (n: number) => nbsp(numberFmt.format(n)),
+  compact: (n: number) => nbsp(compactFmt.format(n)),
   money: (amount: number, currency: string, compact = false) =>
-    new Intl.NumberFormat(LOCALE, {
-      style: 'currency',
-      currency,
-      notation: compact ? 'compact' : 'standard',
-      maximumFractionDigits: compact ? 1 : 2,
-    }).format(amount),
-  date: (iso: string) => dateFmt.format(new Date(iso)),
-  dateTime: (iso: string) => dateTimeFmt.format(new Date(iso)),
+    nbsp(
+      new Intl.NumberFormat(LOCALE, {
+        style: 'currency',
+        currency,
+        notation: compact ? 'compact' : 'standard',
+        maximumFractionDigits: compact ? 1 : 2,
+      }).format(amount),
+    ),
+  date: (iso: string) => nbsp(dateFmt.format(new Date(iso))),
+  dateTime: (iso: string) => nbsp(dateTimeFmt.format(new Date(iso))),
   /** ISO 3166-1 alpha-2 → French country name. */
   country: (code: string) => {
     try {

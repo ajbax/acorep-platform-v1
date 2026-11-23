@@ -117,11 +117,16 @@ export interface ImportDeclaration {
   lines: ProductLine[];
   status: DeclarationStatus;
   submittedAt?: string;
+  /** When the importer last certified the declaration as accurate (required to submit). */
+  attestedAt?: string;
   decidedAt?: string;
   createdAt: string;
   updatedAt: string;
   history: StatusEvent<DeclarationStatus>[];
 }
+
+/** Statuses in which the importer may still edit the content. */
+export const EDITABLE_STATUSES: readonly DeclarationStatus[] = ['DRAFT', 'INFO_REQUESTED'];
 
 export const declarationValue = (d: Pick<ImportDeclaration, 'lines'>) =>
   d.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
@@ -222,3 +227,18 @@ export const declarationInputSchema = z
     });
   });
 export type DeclarationInput = z.infer<typeof declarationInputSchema>;
+
+/**
+ * An entry of the national register of marketing authorisations (AMM), used to prefill product
+ * lines. TODO(V1.1): served by the API and checked on submission.
+ */
+export interface ProductReference {
+  ammNumber: string;
+  productName: string;
+  inn: string;
+  dosageForm: DosageForm;
+  strength: string;
+  atcCode?: string;
+  hsCode: string;
+  unit: string;
+}
